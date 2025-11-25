@@ -1,3 +1,22 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Background image and overlay styles converted from original HTML */
+body {
+	background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuA14J5BG2TXM7hKUQ76JMUPTHeRKrkz_OsA84xgP_56tvQ6LnKPCw-uCm3kGbfAEXcXbCcDDIGhFnXrztCdLvfxaHeWqgg6Ccq9IoF4r_eq2YVqHBMKYcgBKgxGRmC9zHx_aN96Gg-CypJ-U7MYqqYsTCEpRg9YkuZFhpnB_7sy7px4YVXidQdnye82dfKKvKoDd4T8paJkFfjkzWJpcFoHaRzK8P4IXg57iDTCTRV-qdx8SRrPS4raMm0hg4KokE13Lgc_2-RbLz8);
+	background-size: cover;
+	background-position: center;
+	background-repeat: no-repeat;
+}
+.backdrop-overlay {
+	background-color: rgba(255, 255, 255, 0.4);
+}
+.dark .backdrop-overlay {
+	background-color: rgba(0, 0, 0, 0.4);
+}
+
+/* Ensure the display font is used when Tailwind provides the font family */
+.font-display {
+	font-family: Roboto, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+}

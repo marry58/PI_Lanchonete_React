@@ -1,10 +1,36 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>meu-projeto</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@500;700&display=swap" rel="stylesheet" />
+    <!-- Tailwind CDN (quick setup) + custom config -->
+    <script>
+      window.tailwind = window.tailwind || {};
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              primary: '#0f4a8a',
+              'text-primary': '#f59e0b',
+              'background-light': '#f3f4f6',
+              'background-dark': '#111827',
+            },
+            fontFamily: {
+              display: ['Roboto', 'sans-serif'],
+            },
+            borderRadius: {
+              DEFAULT: '0.5rem',
+            },
+          },
+        },
+      };
+    </script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
   </head>
   <body>
     <div id="root"></div>
