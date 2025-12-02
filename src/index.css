@@ -2,21 +2,87 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Background image and overlay styles converted from original HTML */
-body {
-	background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuA14J5BG2TXM7hKUQ76JMUPTHeRKrkz_OsA84xgP_56tvQ6LnKPCw-uCm3kGbfAEXcXbCcDDIGhFnXrztCdLvfxaHeWqgg6Ccq9IoF4r_eq2YVqHBMKYcgBKgxGRmC9zHx_aN96Gg-CypJ-U7MYqqYsTCEpRg9YkuZFhpnB_7sy7px4YVXidQdnye82dfKKvKoDd4T8paJkFfjkzWJpcFoHaRzK8P4IXg57iDTCTRV-qdx8SRrPS4raMm0hg4KokE13Lgc_2-RbLz8);
-	background-size: cover;
-	background-position: center;
-	background-repeat: no-repeat;
-}
-.backdrop-overlay {
-	background-color: rgba(255, 255, 255, 0.4);
-}
-.dark .backdrop-overlay {
-	background-color: rgba(0, 0, 0, 0.4);
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 221 83% 27%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 221 83% 27%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 27%;
+
+    --radius: 0.5rem;
+
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+  }
+
+  .dark {
+    --background: 222 47% 11%;
+    --foreground: 210 40% 98%;
+
+    --card: 217 33% 17%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 221 83% 53%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 221 83% 53%;
+  }
 }
 
-/* Ensure the display font is used when Tailwind provides the font family */
-.font-display {
-	font-family: Roboto, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
 }
