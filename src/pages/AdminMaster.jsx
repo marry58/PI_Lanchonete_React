@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Header from "@/components/Header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -31,21 +30,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Store, 
-  Shield, 
-  BarChart3, 
-  Settings, 
-  Plus, 
-  Pencil, 
-  Trash2, 
+import {
+  Store,
+  Shield,
+  BarChart3,
+  Plus,
+  Pencil,
+  Trash2,
   ShieldCheck,
   MapPin,
   Clock,
   Users,
   Package,
   DollarSign,
-  TrendingUp
+  TrendingUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "@/components/ui/switch";
@@ -68,28 +66,12 @@ const AdminMaster = () => {
   });
 
   // Estados para Admins
-  const [admins, setAdmins] = useState([
-    {
-      id: 1,
-      nome_lanchonete: "João Silva",
-      email: "joao@admin.com",
-      lanchonete: "Lanchonete Centro",
-      status: true,
-      dataAdicao: "2024-01-15"
-    },
-    {
-      id: 2,
-      nome_lanchonete: "Maria Santos",
-      email: "maria@admin.com",
-      lanchonete: "Lanchonete Campus Norte",
-      status: true,
-      dataAdicao: "2024-01-20"
-    }
-  ]);
-
+  const [admins, setAdmins] = useState([]);
+  const [isLoadingAdmins, setIsLoadingAdmins] = useState(false);
+  const [isSavingAdmin, setIsSavingAdmin] = useState(false);
   const [isAddAdminOpen, setIsAddAdminOpen] = useState(false);
   const [adminForm, setAdminForm] = useState({
-    nome_lanchonete: "",
+    nome: "",
     email: "",
     lanchoneteId: "",
     senha: ""
@@ -105,18 +87,23 @@ const AdminMaster = () => {
     pedidosHoje: 28
   });
 
-  // Estados para Configurações
-  const [config, setConfig] = useState({
-    taxaEntrega: "5.00",
-    tempoMinimoPreparo: "30",
-    pedidoMinimo: "20.00",
-    notificacoesEmail: true,
-    notificacoesSMS: false,
-    manutencao: false
-  });
+  const getLanchoneteName = (lanchoneteId) => {
+    if (!lanchoneteId) return "Sem unidade";
+    const unidade = lanchonetes.find((l) => l.id === lanchoneteId);
+    return unidade?.nome_lanchonete || "Sem unidade";
+  };
+
+  const formatAdminDate = (dateString) => {
+    if (!dateString) return "-";
+    return new Date(dateString).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
 
   // Funções para Lanchonetes
-  const fetchLanchonetes = async () => {
+  const fetchLanchonetes = useCallback(async () => {
     setIsLoadingLanchonetes(true);
     const { data, error } = await supabase
       .from("lanchonete")
@@ -142,11 +129,48 @@ const AdminMaster = () => {
     setLanchonetes(normalized);
     setStats((prev) => ({ ...prev, totalLanchonetes: normalized.length }));
     setIsLoadingLanchonetes(false);
-  };
+  }, []);
+
+  const fetchAdmins = useCallback(async () => {
+    setIsLoadingAdmins(true);
+    try {
+      const adminRoles = ["admin"];
+      const { data, error } = await supabase
+        .from("usuario")
+        .select("id, nome, email, role, metadata, created_at, auth_user_id, lanchonete_id")
+        .in("role", adminRoles)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        throw error;
+      }
+
+      const normalized = (data || []).map((item) => ({
+        id: item.id,
+        auth_user_id: item.auth_user_id,
+        nome: item.nome ?? "Sem nome",
+        email: item.email ?? "",
+        lanchoneteId: item.lanchonete_id ?? item.metadata?.lanchonete_id ?? null,
+        status: item.metadata?.active ?? true,
+        dataAdicao: item.created_at,
+        metadata: item.metadata || {},
+        role: item.role || "admin",
+      }));
+
+      setAdmins(normalized);
+      setStats((prev) => ({ ...prev, totalAdmins: normalized.length }));
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao carregar admins.");
+    } finally {
+      setIsLoadingAdmins(false);
+    }
+  }, []);
 
   useEffect(() => {
     fetchLanchonetes();
-  }, []);
+    fetchAdmins();
+  }, [fetchLanchonetes, fetchAdmins]);
 
   const handleAddLanchonete = async (e) => {
     e.preventDefault();
@@ -260,42 +284,121 @@ const AdminMaster = () => {
   };
 
   // Funções para Admins
-  const handleAddAdmin = (e) => {
+  const handleAddAdmin = async (e) => {
     e.preventDefault();
-    if (!adminForm.nome_lanchonete || !adminForm.email || !adminForm.lanchoneteId) {
+
+    if (!adminForm.nome || !adminForm.email || !adminForm.senha || !adminForm.lanchoneteId) {
       toast.error("Preencha todos os campos obrigatórios!");
       return;
     }
-    const lanchonete = lanchonetes.find(l => l.id === parseInt(adminForm.lanchoneteId));
-    const novoAdmin = {
-      id: admins.length + 1,
-      nome_lanchonete: adminForm.nome,
-      email: adminForm.email,
-      lanchonete: lanchonete?.nome || "",
-      status: true,
-      dataAdicao: new Date().toISOString().split('T')[0]
-    };
-    setAdmins([...admins, novoAdmin]);
-    toast.success("Admin adicionado com sucesso!");
-    setIsAddAdminOpen(false);
-    setAdminForm({ nome_lanchonete: "", email: "", lanchoneteId: "", senha: "" });
+
+    try {
+      setIsSavingAdmin(true);
+
+
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: adminForm.email,
+        password: adminForm.senha,
+        options: {
+          data: {
+            full_name: adminForm.nome,
+            role: "admin",
+            lanchonete_id: adminForm.lanchoneteId,
+          },
+          emailRedirectTo: `${window.location.origin}/login`,
+        },
+      });
+
+      if (signUpError) {
+        throw signUpError;
+      }
+
+      const authUserId = signUpData.user?.id;
+
+      if (!authUserId) {
+        throw new Error("Não foi possível obter o ID do usuário criado.");
+      }
+
+      const selectedLanchonete = lanchonetes.find((l) => l.id === adminForm.lanchoneteId);
+      const unidadeNome = selectedLanchonete?.nome_lanchonete || "";
+
+      const { error: usuarioError } = await supabase.from("usuario").insert({
+        auth_user_id: authUserId,
+        nome: adminForm.nome,
+        email: adminForm.email,
+        role: "admin",
+        unidade: unidadeNome,
+        lanchonete_id: adminForm.lanchoneteId,
+        metadata: {
+          active: true,
+          lanchonete_id: adminForm.lanchoneteId,
+        },
+      });
+
+      if (usuarioError) {
+        throw usuarioError;
+      }
+
+      toast.success("Administrador criado com sucesso!");
+      setIsAddAdminOpen(false);
+      setAdminForm({ nome: "", email: "", lanchoneteId: "", senha: "" });
+      fetchAdmins();
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || "Erro ao criar administrador.");
+    } finally {
+      setIsSavingAdmin(false);
+    }
   };
 
-  const toggleAdminStatus = (id) => {
-    setAdmins(admins.map(a => 
-      a.id === id ? { ...a, status: !a.status } : a
-    ));
-    toast.success("Status do admin atualizado!");
+  const toggleAdminStatus = async (admin) => {
+    const nextStatus = !admin.status;
+    try {
+      const newMetadata = {
+        ...(admin.metadata || {}),
+        active: nextStatus,
+      };
+
+      const { error } = await supabase
+        .from("usuario")
+        .update({ metadata: newMetadata })
+        .eq("id", admin.id);
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success("Status do admin atualizado!");
+      fetchAdmins();
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao atualizar status do admin.");
+    }
   };
 
-  const deleteAdmin = (id) => {
-    setAdmins(admins.filter(a => a.id !== id));
-    toast.success("Admin removido!");
-  };
+  const deleteAdmin = async (admin) => {
+    try {
+      const newMetadata = {
+        ...(admin.metadata || {}),
+        lanchonete_id: null,
+        active: false,
+      };
 
-  // Funções para Configurações
-  const handleSaveConfig = () => {
-    toast.success("Configurações salvas com sucesso!");
+      const { error } = await supabase
+        .from("usuario")
+        .update({ role: "client", metadata: newMetadata })
+        .eq("id", admin.id);
+
+      if (error) {
+        throw error;
+      }
+
+      toast.success("Admin removido!");
+      fetchAdmins();
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao remover admin.");
+    }
   };
 
   return (
@@ -314,7 +417,7 @@ const AdminMaster = () => {
         </div>
 
         <Tabs defaultValue="lanchonetes" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="lanchonetes" className="gap-2">
               <Store className="h-4 w-4" />
               Lanchonetes
@@ -326,10 +429,6 @@ const AdminMaster = () => {
             <TabsTrigger value="estatisticas" className="gap-2">
               <BarChart3 className="h-4 w-4" />
               Estatísticas
-            </TabsTrigger>
-            <TabsTrigger value="configuracoes" className="gap-2">
-              <Settings className="h-4 w-4" />
-              Configurações
             </TabsTrigger>
           </TabsList>
 
@@ -501,7 +600,7 @@ const AdminMaster = () => {
                           <Input
                             id="admin-nome"
                             value={adminForm.nome}
-                            onChange={(e) => setAdminForm({...adminForm, nome: e.target.value})}
+                            onChange={(e) => setAdminForm({ ...adminForm, nome: e.target.value })}
                             placeholder="Nome completo"
                           />
                         </div>
@@ -511,7 +610,7 @@ const AdminMaster = () => {
                             id="admin-email"
                             type="email"
                             value={adminForm.email}
-                            onChange={(e) => setAdminForm({...adminForm, email: e.target.value})}
+                            onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })}
                             placeholder="email@exemplo.com"
                           />
                         </div>
@@ -521,7 +620,7 @@ const AdminMaster = () => {
                             id="admin-senha"
                             type="password"
                             value={adminForm.senha}
-                            onChange={(e) => setAdminForm({...adminForm, senha: e.target.value})}
+                            onChange={(e) => setAdminForm({ ...adminForm, senha: e.target.value })}
                             placeholder="Senha do admin"
                           />
                         </div>
@@ -529,14 +628,14 @@ const AdminMaster = () => {
                           <Label htmlFor="lanchonete">Lanchonete *</Label>
                           <Select
                             value={adminForm.lanchoneteId}
-                            onValueChange={(value) => setAdminForm({...adminForm, lanchoneteId: value})}
+                            onValueChange={(value) => setAdminForm({ ...adminForm, lanchoneteId: value })}
                           >
                             <SelectTrigger>
                               <SelectValue placeholder="Selecione uma lanchonete" />
                             </SelectTrigger>
                             <SelectContent>
                               {lanchonetes.map((l) => (
-                                <SelectItem key={l.id} value={l.id.toString()}>
+                                <SelectItem key={l.id} value={l.id}>
                                   {l.nome_lanchonete}
                                 </SelectItem>
                               ))}
@@ -544,7 +643,9 @@ const AdminMaster = () => {
                           </Select>
                         </div>
                         <DialogFooter>
-                          <Button type="submit">Adicionar</Button>
+                          <Button type="submit" disabled={isSavingAdmin}>
+                            {isSavingAdmin ? "Salvando..." : "Adicionar"}
+                          </Button>
                         </DialogFooter>
                       </form>
                     </DialogContent>
@@ -564,31 +665,45 @@ const AdminMaster = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {admins.map((admin) => (
-                      <TableRow key={admin.id}>
-                        <TableCell className="font-medium">{admin.nome}</TableCell>
-                        <TableCell>{admin.email}</TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{admin.lanchonete}</Badge>
-                        </TableCell>
-                        <TableCell>{admin.dataAdicao}</TableCell>
-                        <TableCell>
-                          <Switch
-                            checked={admin.status}
-                            onCheckedChange={() => toggleAdminStatus(admin.id)}
-                          />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => deleteAdmin(admin.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                    {isLoadingAdmins ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
+                          Carregando administradores...
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : admins.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">
+                          Nenhum administrador cadastrado.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      admins.map((admin) => (
+                        <TableRow key={admin.id}>
+                          <TableCell className="font-medium">{admin.nome}</TableCell>
+                          <TableCell>{admin.email}</TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{getLanchoneteName(admin.lanchoneteId)}</Badge>
+                          </TableCell>
+                          <TableCell>{formatAdminDate(admin.dataAdicao)}</TableCell>
+                          <TableCell>
+                            <Switch
+                              checked={admin.status}
+                              onCheckedChange={() => toggleAdminStatus(admin)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deleteAdmin(admin)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </CardContent>
@@ -699,102 +814,6 @@ const AdminMaster = () => {
                     </TableRow>
                   </TableBody>
                 </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tab Configurações */}
-          <TabsContent value="configuracoes" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Configurações do Sistema</CardTitle>
-                <CardDescription>Configure parâmetros globais da plataforma</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Parâmetros de Pedido</h3>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <Label htmlFor="taxaEntrega">Taxa de Entrega (R$)</Label>
-                      <Input
-                        id="taxaEntrega"
-                        type="number"
-                        step="0.01"
-                        value={config.taxaEntrega}
-                        onChange={(e) => setConfig({...config, taxaEntrega: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="pedidoMinimo">Pedido Mínimo (R$)</Label>
-                      <Input
-                        id="pedidoMinimo"
-                        type="number"
-                        step="0.01"
-                        value={config.pedidoMinimo}
-                        onChange={(e) => setConfig({...config, pedidoMinimo: e.target.value})}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="tempoPreparo">Tempo Mínimo de Preparo (min)</Label>
-                      <Input
-                        id="tempoPreparo"
-                        type="number"
-                        value={config.tempoMinimoPreparo}
-                        onChange={(e) => setConfig({...config, tempoMinimoPreparo: e.target.value})}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Notificações</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label>Notificações por Email</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Enviar notificações de pedidos por email
-                        </p>
-                      </div>
-                      <Switch
-                        checked={config.notificacoesEmail}
-                        onCheckedChange={(checked) => setConfig({...config, notificacoesEmail: checked})}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label>Notificações por SMS</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Enviar notificações de pedidos por SMS
-                        </p>
-                      </div>
-                      <Switch
-                        checked={config.notificacoesSMS}
-                        onCheckedChange={(checked) => setConfig({...config, notificacoesSMS: checked})}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Sistema</h3>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label>Modo Manutenção</Label>
-                      <p className="text-sm text-muted-foreground">
-                        Ativar modo de manutenção do sistema
-                      </p>
-                    </div>
-                    <Switch
-                      checked={config.manutencao}
-                      onCheckedChange={(checked) => setConfig({...config, manutencao: checked})}
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-4">
-                  <Button onClick={handleSaveConfig}>Salvar Configurações</Button>
-                </div>
               </CardContent>
             </Card>
           </TabsContent>

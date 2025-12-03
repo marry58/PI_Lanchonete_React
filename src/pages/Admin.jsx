@@ -32,7 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Package, ShoppingCart, Layers, BarChart3, TrendingUp, DollarSign, Users, UserCog, Shield, ShieldOff, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, ShoppingCart, Layers, BarChart3, TrendingUp, DollarSign, Users, UserCog, Shield, ShieldOff, Search, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts";
@@ -41,14 +41,15 @@ const Admin = () => {
 
   // ///////////////////////////////////////////////////////////////////
   // Produto estados de edição
-const [productForm, setProductForm] = useState({
+  const [productForm, setProductForm] = useState({
     nome: "",
     descricao: "",
     preco: "",
     categoria_id: null,
+    lanchonete_id: null,
     imagem: "",
-  disponivel: true,
-  estoque: 0,
+    disponivel: true,
+    estoque: 0,
   });
 
   const handleChangeProdutos = (e) => {
@@ -58,11 +59,11 @@ const [productForm, setProductForm] = useState({
     });
   };
 
-const handleAdicionarProduct = async (e) => {
-  e.preventDefault();
+  const handleAdicionarProduct = async (e) => {
+    e.preventDefault();
 
-  if (!productForm.nome || !productForm.preco || !productForm.categoria_id) {
-      toast.error("Preencha nome, preço e categoria do produto!");
+    if (!productForm.nome || !productForm.preco || !productForm.categoria_id || !productForm.lanchonete_id) {
+      toast.error("Preencha nome, preço, categoria e lanchonete do produto!");
       return;
     }
 
@@ -72,12 +73,13 @@ const handleAdicionarProduct = async (e) => {
         descricao: productForm.descricao,
         preco: parseFloat(productForm.preco),
         categoria_id: productForm.categoria_id,
+        lanchonete_id: productForm.lanchonete_id,
         imagem: productForm.imagem,
         disponivel: productForm.disponivel,
         estoque: Number(productForm.estoque) || 0,
       };
 
-    
+
 
       const { error } = await supabase.from("produtos").insert(payload);
 
@@ -90,13 +92,14 @@ const handleAdicionarProduct = async (e) => {
       toast.success("Produto adicionado com sucesso!");
       setIsAddProductOpen(false);
       setProductForm({
-      nome: "",
-      descricao: "",
-      preco: "",
-      categoria_id: categories[0]?.id ?? null,
-      imagem: "",
-      disponivel: true,
-      estoque: 0,
+        nome: "",
+        descricao: "",
+        preco: "",
+        categoria_id: categories[0]?.id ?? null,
+        lanchonete_id: lanchonetes[0]?.id ?? null,
+        imagem: "",
+        disponivel: true,
+        estoque: 0,
       });
       fetchProducts();
     } catch (err) {
@@ -106,8 +109,8 @@ const handleAdicionarProduct = async (e) => {
   };
 
   const handleEditProduct = async () => {
-    if (!productForm.nome || !productForm.preco || !productForm.categoria_id || !editingProduct) {
-      toast.error("Preencha nome, preço e categoria do produto!");
+    if (!productForm.nome || !productForm.preco || !productForm.categoria_id || !productForm.lanchonete_id || !editingProduct) {
+      toast.error("Preencha nome, preço, categoria e lanchonete do produto!");
       return;
     }
 
@@ -119,6 +122,7 @@ const handleAdicionarProduct = async (e) => {
           descricao: productForm.descricao,
           preco: parseFloat(productForm.preco),
           categoria_id: productForm.categoria_id,
+          lanchonete_id: productForm.lanchonete_id,
           imagem: productForm.imagem,
           disponivel: productForm.disponivel,
           estoque: Number(productForm.estoque) || 0,
@@ -139,6 +143,7 @@ const handleAdicionarProduct = async (e) => {
         descricao: "",
         preco: "",
         categoria_id: categories[0]?.id ?? null,
+        lanchonete_id: lanchonetes[0]?.id ?? null,
         imagem: "",
         disponivel: true,
         estoque: 0,
@@ -157,6 +162,7 @@ const handleAdicionarProduct = async (e) => {
       descricao: product.descricao,
       preco: product.preco.toString(),
       categoria_id: product.categoria_id,
+      lanchonete_id: product.lanchonete_id,
       imagem: product.imagem,
       disponivel: product.disponivel,
       estoque: product.estoque ?? 0,
@@ -212,12 +218,14 @@ const handleAdicionarProduct = async (e) => {
   const [products, setProducts] = useState([]);
   const [isLoadingProducts, setIsLoadingProducts] = useState(false);
   const [productSearchTerm, setProductSearchTerm] = useState("");
+  const [lanchonetes, setLanchonetes] = useState([]);
+  const [isLoadingLanchonetes, setIsLoadingLanchonetes] = useState(false);
 
   const fetchProducts = async () => {
     setIsLoadingProducts(true);
     const { data, error } = await supabase
       .from("produtos")
-      .select("id, nome, descricao, preco, categoria_id, imagem, disponivel, estoque")
+      .select("id, nome, descricao, preco, categoria_id, lanchonete_id, imagem, disponivel, estoque")
       .order("id", { ascending: true });
 
     if (error) {
@@ -233,6 +241,7 @@ const handleAdicionarProduct = async (e) => {
       descricao: prod.descricao,
       preco: Number(prod.preco) || 0,
       categoria_id: prod.categoria_id,
+      lanchonete_id: prod.lanchonete_id,
       imagem: prod.imagem,
       disponivel: prod.disponivel ?? true,
       estoque: Number(prod.estoque) || 0,
@@ -242,14 +251,40 @@ const handleAdicionarProduct = async (e) => {
     setIsLoadingProducts(false);
   };
 
+  const fetchLanchonetes = async () => {
+    setIsLoadingLanchonetes(true);
+    const { data, error } = await supabase
+      .from("lanchonete")
+      .select("id, nome_lanchonete, endereco, status")
+      .order("nome_lanchonete", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      toast.error("Erro ao carregar lanchonetes.");
+      setIsLoadingLanchonetes(false);
+      return;
+    }
+
+    const normalized = (data || [])
+      .filter((item) => item.status !== false)
+      .map((item) => ({
+        id: item.id,
+        name: item.nome_lanchonete,
+        address: item.endereco,
+      }));
+
+    setLanchonetes(normalized);
+    setIsLoadingLanchonetes(false);
+  };
+
   // fim PRODUTOS  
-// ///////////////////////////////////////////////////////////////////
+  // ///////////////////////////////////////////////////////////////////
 
 
 
 
-// ///////////////////////////////////////////////////////////////////
-// Categoria estados de edição 
+  // ///////////////////////////////////////////////////////////////////
+  // Categoria estados de edição 
 
 
   const [formCategorias, setFormCategorias] = useState({
@@ -296,7 +331,8 @@ const handleAdicionarProduct = async (e) => {
   useEffect(() => {
     fetchCategories();
     fetchProducts();
-    fetchUsers();
+    fetchLanchonetes();
+    fetchOrders();
   }, []);
 
   const handleAddCategory = async (e) => {
@@ -325,7 +361,7 @@ const handleAdicionarProduct = async (e) => {
     }
   };
 
-  
+
   const [categoryForm, setCategoryForm] = useState({
     name: "",
     description: "",
@@ -348,6 +384,20 @@ const handleAdicionarProduct = async (e) => {
       };
     });
   }, [categories]);
+
+  useEffect(() => {
+    if (lanchonetes.length === 0) return;
+    setProductForm((prev) => {
+      const lanchoneteExists = lanchonetes.some((lan) => lan.id === prev.lanchonete_id);
+      if (lanchoneteExists) {
+        return prev;
+      }
+      return {
+        ...prev,
+        lanchonete_id: lanchonetes[0].id,
+      };
+    });
+  }, [lanchonetes]);
 
   const handleEditCategory = async () => {
     if (!categoryForm.name) {
@@ -423,131 +473,95 @@ const handleAdicionarProduct = async (e) => {
   // ===== fim FUNÇÕES DE CATEGORIAS =====
 
   // Estado de Pedidos
-  const [orders, setOrders] = useState([
-    {
-      id: 1,
-      customer: "João Silva",
-      items: "2x X-Burger, 1x Coca-Cola",
-      total: 45.00,
-      status: "pending",
-      date: "2024-01-20 14:30",
-      address: "Rua das Flores, 123 - Centro",
-    },
-    {
-      id: 2,
-      customer: "Maria Santos",
-      items: "1x Pizza Margherita, 1x Suco",
-      total: 52.00,
-      status: "preparing",
-      date: "2024-01-20 14:15",
-      address: "Av. Principal, 456 - Jardim",
-    },
-    {
-      id: 3,
-      customer: "Pedro Costa",
-      items: "3x Esfiha de Carne",
-      total: 18.00,
-      status: "ready",
-      date: "2024-01-20 13:45",
-      address: "Rua do Comércio, 789 - Vila Nova",
-    },
-    {
-      id: 4,
-      customer: "Ana Oliveira",
-      items: "1x X-Salada, 1x Batata Frita",
-      total: 38.00,
-      status: "delivered",
-      date: "2024-01-20 13:00",
-      address: "Rua São José, 321 - Centro",
-    },
-  ]);
+  const [orders, setOrders] = useState([]);
+  const [isLoadingOrders, setIsLoadingOrders] = useState(false);
+  const [selectedOrderItems, setSelectedOrderItems] = useState([]);
+  const [isOrderDetailsOpen, setIsOrderDetailsOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
 
-  // Estado de Usuários
-  const [users, setUsers] = useState([]);
-  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
-  const [userSearchTerm, setUserSearchTerm] = useState("");
-  const [userRoleFilter, setUserRoleFilter] = useState("all");
-
-
-  
-  const normalizeRole = (role) => {
-    if (!role) return null;
-    const normalized = role.toLowerCase();
-    return normalized === "user" ? "client" : normalized;
-  };
-
-  const fetchUsers = async () => {
-    setIsLoadingUsers(true);
-
-    const { data } = await supabase.auth.getSession();
-console.log(data.session?.user?.user_metadata?.role);
-
+  const fetchOrders = async () => {
+    setIsLoadingOrders(true);
     try {
-      const { data: usuariosData, error: usuariosError } = await supabase
-        .from("usuario")
-        .select("*")
-        .order("nome", { ascending: true });
+      const { data, error } = await supabase
+        .from("pedidos")
+        .select(`
+    id,
+    total,
+    status,
+    address,
+    payment_method,
+    metadata,
+    created_at,
+    usuario:usuario_id (nome, email, telefone),
+    lanchonete:lanchonete_id (nome_lanchonete)
+  `)
+        .order("created_at", { ascending: false });
 
-      
-
-      if (usuariosError) {
-        console.error(usuariosError);
-        toast.error("Erro ao carregar usuários.");
-        return;
+      if (error) {
+        throw error;
       }
 
-      const usersWithRoles = (usuariosData || []).map((user) => {
-        const normalizedRole = normalizeRole(user.role) || "client";
-        return {
-          ...user,
-          role: normalizedRole,
-          isAdmin: normalizedRole === "admin",
-        };
-      });
-
-      setUsers(usersWithRoles);
+      setOrders(data || []);
     } catch (err) {
       console.error(err);
-      toast.error("Erro ao carregar usuários.");
+      toast.error("Erro ao carregar pedidos.");
     } finally {
-      setIsLoadingUsers(false);
+      setIsLoadingOrders(false);
     }
   };
 
-  const toggleAdminRole = async (userId, currentRole) => {
-    if (!userId) {
-      toast.error("Usuário sem referência de autenticação.");
-      return;
-    }
+  const fetchOrderItems = async (orderId) => {
     try {
-      const normalizedCurrentRole = normalizeRole(currentRole) || "client";
-      const newRole = normalizedCurrentRole === "admin" ? "client" : "admin";
+      const { data, error } = await supabase
+        .from("pedido_items")
+        .select(`
+    id,
+    title,
+    price,
+    qty,
+    metadata,
+    produto:product_id (nome, imagem)
+  `)
+        .eq("pedido_id", orderId);
 
-      const { error: updateError } = await supabase
-        .from("usuario")
-        .update({ role: newRole })
-        .eq("auth_user_id", userId);
+      if (error) {
+        throw error;
+      }
+      return data || [];
+    } catch (err) {
+      console.error(err);
+      return [];
+    }
+  };
 
-      if (updateError) {
-        console.error(updateError);
-        toast.error("Erro ao atualizar privilégio.");
+  const handleViewOrderDetails = async (order) => {
+    setSelectedOrder(order);
+    const items = await fetchOrderItems(order.id);
+    setSelectedOrderItems(items);
+    setIsOrderDetailsOpen(true);
+  };
+
+  const updateOrderStatusInDB = async (orderId, newStatus) => {
+    try {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({ status: newStatus })
+        .eq("id", orderId);
+
+      if (error) {
+        console.error(error);
+        toast.error("Erro ao atualizar status.");
         return;
       }
 
-      toast.success(
-        newRole === "admin"
-          ? "Usuário promovido a admin com sucesso!"
-          : "Usuário definido como cliente."
-      );
-
-      fetchUsers();
+      toast.success("Status do pedido atualizado!");
+      fetchOrders();
     } catch (err) {
       console.error(err);
-      toast.error("Erro inesperado ao alterar privilégios.");
+      toast.error("Erro ao atualizar status.");
     }
   };
 
-  
   // Dialogs states
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [isEditProductOpen, setIsEditProductOpen] = useState(false);
@@ -610,12 +624,20 @@ console.log(data.session?.user?.user_metadata?.role);
     return category ? category.name : "Sem categoria";
   };
 
+  const getLanchoneteName = (lanchoneteId) => {
+    const unidade = lanchonetes.find((l) => l.id === lanchoneteId);
+    return unidade ? unidade.name : "Sem unidade";
+  };
+
   // ===== FUNÇÕES DE PEDIDOS =====
-  const updateOrderStatus = (orderId, newStatus) => {
-    setOrders(orders.map(order =>
-      order.id === orderId ? { ...order, status: newStatus } : order
-    ));
-    toast.success("Status do pedido atualizado!");
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   const filteredProducts = products.filter((product) => {
@@ -626,29 +648,15 @@ console.log(data.session?.user?.user_metadata?.role);
     const matchesDescription = product.descricao?.toLowerCase().includes(search);
     const categoryName = getCategoryName(product.categoria_id).toLowerCase();
     const matchesCategory = categoryName.includes(search);
+    const lanchoneteName = getLanchoneteName(product.lanchonete_id).toLowerCase();
+    const matchesLanchonete = lanchoneteName.includes(search);
 
-    return matchesName || matchesDescription || matchesCategory;
+    return matchesName || matchesDescription || matchesCategory || matchesLanchonete;
   });
 
-  const filteredUsers = users.filter((user) => {
-    const search = userSearchTerm.trim().toLowerCase();
-    const matchesSearch =
-      search === "" ||
-      (user.nome && user.nome.toLowerCase().includes(search)) ||
-      (user.email && user.email.toLowerCase().includes(search)) ||
-      (user.unidade && user.unidade.toLowerCase().includes(search)) ||
-      (user.cpf && user.cpf.toLowerCase().includes(search));
 
-    const matchesRole =
-      userRoleFilter === "all" ||
-      (userRoleFilter === "admin" && user.role === "admin") ||
-      (userRoleFilter === "client" && user.role === "client");
 
-    return matchesSearch && matchesRole;
-  });
- 
-  
-  
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -659,7 +667,7 @@ console.log(data.session?.user?.user_metadata?.role);
         </div>
 
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full max-w-4xl grid-cols-5">
+          <TabsList className="grid w-full max-w-4xl grid-cols-4">
             <TabsTrigger value="dashboard" className="gap-2">
               <BarChart3 className="h-4 w-4" />
               Dashboard
@@ -675,10 +683,6 @@ console.log(data.session?.user?.user_metadata?.role);
             <TabsTrigger value="categories" className="gap-2">
               <Layers className="h-4 w-4" />
               Categorias
-            </TabsTrigger>
-            <TabsTrigger value="users" className="gap-2">
-              <UserCog className="h-4 w-4" />
-              Usuários
             </TabsTrigger>
           </TabsList>
 
@@ -752,20 +756,20 @@ console.log(data.session?.user?.user_metadata?.role);
                     <ResponsiveContainer width="100%" height="100%">
                       <LineChart data={salesData}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis 
-                          dataKey="day" 
+                        <XAxis
+                          dataKey="day"
                           className="text-xs"
                           tick={{ fill: "hsl(var(--muted-foreground))" }}
                         />
-                        <YAxis 
+                        <YAxis
                           className="text-xs"
                           tick={{ fill: "hsl(var(--muted-foreground))" }}
                         />
                         <ChartTooltip content={<ChartTooltipContent />} />
-                        <Line 
-                          type="monotone" 
-                          dataKey="value" 
-                          stroke="hsl(var(--primary))" 
+                        <Line
+                          type="monotone"
+                          dataKey="value"
+                          stroke="hsl(var(--primary))"
                           strokeWidth={2}
                           dot={{ fill: "hsl(var(--primary))", r: 4 }}
                         />
@@ -817,19 +821,19 @@ console.log(data.session?.user?.user_metadata?.role);
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={topProductsData}>
                         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis 
-                          dataKey="product" 
+                        <XAxis
+                          dataKey="product"
                           className="text-xs"
                           tick={{ fill: "hsl(var(--muted-foreground))" }}
                         />
-                        <YAxis 
+                        <YAxis
                           className="text-xs"
                           tick={{ fill: "hsl(var(--muted-foreground))" }}
                         />
                         <ChartTooltip content={<ChartTooltipContent />} />
-                        <Bar 
-                          dataKey="sales" 
-                          fill="hsl(var(--primary))" 
+                        <Bar
+                          dataKey="sales"
+                          fill="hsl(var(--primary))"
                           radius={[8, 8, 0, 0]}
                         />
                       </BarChart>
@@ -849,56 +853,180 @@ console.log(data.session?.user?.user_metadata?.role);
                 <CardDescription>Visualize e atualize o status dos pedidos</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>ID</TableHead>
-                        <TableHead>Cliente</TableHead>
-                        <TableHead>Itens</TableHead>
-                        <TableHead>Endereço</TableHead>
-                        <TableHead>Total</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Data/Hora</TableHead>
-                        <TableHead>Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {orders.map((order) => (
-                        <TableRow key={order.id}>
-                          <TableCell className="font-medium">#{order.id}</TableCell>
-                          <TableCell>{order.customer}</TableCell>
-                          <TableCell className="max-w-xs truncate">{order.items}</TableCell>
-                          <TableCell className="max-w-xs truncate text-muted-foreground text-sm">
-                            {order.address}
-                          </TableCell>
-                          <TableCell className="font-semibold">R$ {order.total.toFixed(2)}</TableCell>
-                          <TableCell>{getStatusBadge(order.status)}</TableCell>
-                          <TableCell className="text-sm text-muted-foreground">{order.date}</TableCell>
-                          <TableCell>
-                            <Select
-                              value={order.status}
-                              onValueChange={(value) => updateOrderStatus(order.id, value)}
-                            >
-                              <SelectTrigger className="w-36">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="pending">Pendente</SelectItem>
-                                <SelectItem value="preparing">Preparando</SelectItem>
-                                <SelectItem value="ready">Pronto</SelectItem>
-                                <SelectItem value="delivered">Entregue</SelectItem>
-                                <SelectItem value="cancelled">Cancelado</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
+                {isLoadingOrders ? (
+                  <p className="text-center text-muted-foreground py-8">Carregando pedidos...</p>
+                ) : orders.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">Nenhum pedido encontrado.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>ID</TableHead>
+                          <TableHead>Cliente</TableHead>
+                          <TableHead>Lanchonete</TableHead>
+                          <TableHead>Total</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Data/Hora</TableHead>
+                          <TableHead>Ações</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                      </TableHeader>
+                      <TableBody>
+                        {orders.map((order) => (
+                          <TableRow key={order.id}>
+                            <TableCell className="font-medium">#{order.id.slice(0, 8)}</TableCell>
+                            <TableCell>{order.usuario?.nome || order.metadata?.customer_name || "Cliente"}</TableCell>
+                            <TableCell>{order.lanchonete?.nome_lanchonete || "-"}</TableCell>
+                            <TableCell className="font-semibold">R$ {Number(order.total).toFixed(2)}</TableCell>
+                            <TableCell>{getStatusBadge(order.status)}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground">{formatDate(order.created_at)}</TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleViewOrderDetails(order)}
+                                >
+                                  Ver Detalhes
+                                </Button>
+                                <Select
+                                  value={order.status}
+                                  onValueChange={(value) => updateOrderStatusInDB(order.id, value)}
+                                >
+                                  <SelectTrigger className="w-36">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="pending">Pendente</SelectItem>
+                                    <SelectItem value="preparing">Preparando</SelectItem>
+                                    <SelectItem value="ready">Pronto</SelectItem>
+                                    <SelectItem value="delivered">Entregue</SelectItem>
+                                    <SelectItem value="cancelled">Cancelado</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
               </CardContent>
             </Card>
+
+            {/* Dialog de detalhes do pedido */}
+            <Dialog open={isOrderDetailsOpen} onOpenChange={setIsOrderDetailsOpen}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Detalhes do Pedido</DialogTitle>
+                  <DialogDescription>
+                    Pedido #{selectedOrder?.id.slice(0, 8)}
+                  </DialogDescription>
+                </DialogHeader>
+                {selectedOrder && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Cliente</p>
+                        <p className="font-medium">{selectedOrder.usuario?.nome || selectedOrder.metadata?.customer_name || "Cliente"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Telefone</p>
+                        <p className="font-medium">{selectedOrder.usuario?.telefone || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Data</p>
+                        <p className="font-medium">{formatDate(selectedOrder.created_at)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Status</p>
+                        {getStatusBadge(selectedOrder.status)}
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Pagamento</p>
+                        <p className="font-medium">{selectedOrder.payment_method?.toUpperCase() || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Endereço</p>
+                        <p className="font-medium">{selectedOrder.address || "Retirada no balcão"}</p>
+                      </div>
+                    </div>
+
+                    {selectedOrder.metadata?.notes && (
+                      <div>
+                        <p className="text-muted-foreground text-sm">Observações</p>
+                        <p className="text-sm">{selectedOrder.metadata.notes}</p>
+                      </div>
+                    )}
+
+                    <div>
+                      <p className="text-muted-foreground text-sm mb-2">Itens do Pedido</p>
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {selectedOrderItems.map((item) => (
+                          <div key={item.id} className="flex items-center gap-3 p-2 bg-muted rounded-lg">
+                            {(
+                              item.metadata?.image || item.produto?.imagem
+                            ) && (
+                                <img
+                                  src={item.metadata?.image || item.produto?.imagem}
+                                  alt={item.produto?.nome || item.title || "Produto"}
+                                  className="w-12 h-12 object-cover rounded"
+                                />
+                              )}
+                            <div className="flex-1">
+                              <p className="font-medium">{item.title || item.produto?.nome || "Produto"}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {item.qty}x R$ {Number(item.price).toFixed(2)}
+                              </p>
+                            </div>
+                            <p className="font-semibold">
+                              R$ {(item.qty * Number(item.price)).toFixed(2)}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between items-center pt-4 border-t">
+                      <span className="text-lg font-bold">Total</span>
+                      <span className="text-lg font-bold text-primary">
+                        R$ {Number(selectedOrder.total).toFixed(2)}
+                      </span>
+                    </div>
+
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        className="flex-1"
+                        variant="outline"
+                        onClick={() => updateOrderStatusInDB(selectedOrder.id, "preparing")}
+                        disabled={selectedOrder.status === "preparing"}
+                      >
+                        Preparando
+                      </Button>
+                      <Button
+                        className="flex-1"
+                        variant="outline"
+                        onClick={() => updateOrderStatusInDB(selectedOrder.id, "ready")}
+                        disabled={selectedOrder.status === "ready"}
+                      >
+                        Pronto
+                      </Button>
+                      <Button
+                        className="flex-1"
+                        onClick={() => {
+                          updateOrderStatusInDB(selectedOrder.id, "delivered");
+                          setIsOrderDetailsOpen(false);
+                        }}
+                        disabled={selectedOrder.status === "delivered"}
+                      >
+                        Finalizar
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           {/* ===== TAB DE PRODUTOS ===== */}
@@ -918,101 +1046,127 @@ console.log(data.session?.user?.user_metadata?.role);
                   </DialogTrigger>
                   <DialogContent className="max-w-md">
                     <form onSubmit={handleAdicionarProduct}>
-                    <DialogHeader>
-                      <DialogTitle>Novo Produto</DialogTitle>
-                      <DialogDescription>Preencha os dados do produto</DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="nome">Nome</Label>
-                        <Input
-                          id="nome"
-                          value={productForm.nome}
-                          onChange={handleChangeProdutos}
-                          placeholder="Ex: X-Burger Especial"
-                        />
+                      <DialogHeader>
+                        <DialogTitle>Novo Produto</DialogTitle>
+                        <DialogDescription>Preencha os dados do produto</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="nome">Nome</Label>
+                          <Input
+                            id="nome"
+                            value={productForm.nome}
+                            onChange={handleChangeProdutos}
+                            placeholder="Ex: X-Burger Especial"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="descricao">Descrição</Label>
+                          <Textarea
+                            id="descricao"
+                            value={productForm.descricao}
+                            onChange={handleChangeProdutos}
+                            placeholder="Descreva o produto"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="preco">Preço (R$)</Label>
+                          <Input
+                            id="preco"
+                            type="number"
+                            step="0.01"
+                            value={productForm.preco}
+                            onChange={handleChangeProdutos}
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="estoque">Estoque</Label>
+                          <Input
+                            id="estoque"
+                            type="number"
+                            min="0"
+                            value={productForm.estoque}
+                            onChange={handleChangeProdutos}
+                            placeholder="0"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="categoria_id">Categoria</Label>
+                          <Select
+                            value={productForm.categoria_id ? productForm.categoria_id.toString() : ""}
+                            onValueChange={(value) =>
+                              setProductForm((prev) => ({ ...prev, categoria_id: value }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {categories.map((cat) => (
+                                <SelectItem key={cat.id} value={cat.id.toString()}>
+                                  {cat.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="lanchonete_id">Lanchonete</Label>
+                          <Select
+                            value={productForm.lanchonete_id ? productForm.lanchonete_id.toString() : ""}
+                            onValueChange={(value) =>
+                              setProductForm((prev) => ({ ...prev, lanchonete_id: value }))
+                            }
+                            disabled={lanchonetes.length === 0}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={isLoadingLanchonetes ? "Carregando..." : "Selecione"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {lanchonetes.map((lan) => (
+                                <SelectItem key={lan.id} value={lan.id.toString()}>
+                                  {lan.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {lanchonetes.length === 0 && !isLoadingLanchonetes && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Cadastre uma lanchonete antes de criar produtos.
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="disponivel"
+                            checked={productForm.disponivel}
+                            onChange={(e) =>
+                              setProductForm((prev) => ({
+                                ...prev,
+                                disponivel: e.target.checked,
+                              }))
+                            }
+                            className="w-4 h-4"
+                          />
+                          <Label htmlFor="disponivel">Produto disponível</Label>
+                        </div>
+                        <div>
+                          <Label htmlFor="imagem">URL da Imagem</Label>
+                          <Input
+                            id="imagem"
+                            value={productForm.imagem}
+                            onChange={handleChangeProdutos}
+                            placeholder="https://..."
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <Label htmlFor="descricao">Descrição</Label>
-                        <Textarea
-                          id="descricao"
-                          value={productForm.descricao}
-                          onChange={handleChangeProdutos}
-                          placeholder="Descreva o produto"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="preco">Preço (R$)</Label>
-                        <Input
-                          id="preco"
-                          type="number"
-                          step="0.01"
-                          value={productForm.preco}
-                          onChange={handleChangeProdutos}
-                          placeholder="0.00"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="estoque">Estoque</Label>
-                        <Input
-                          id="estoque"
-                          type="number"
-                          min="0"
-                          value={productForm.estoque}
-                          onChange={handleChangeProdutos}
-                          placeholder="0"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="categoria_id">Categoria</Label>
-                        <Select
-                          value={productForm.categoria_id ? productForm.categoria_id.toString() : ""}
-                          onValueChange={(value) =>
-                          setProductForm((prev) => ({ ...prev, categoria_id: value }))
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {categories.map((cat) => (
-                              <SelectItem key={cat.id} value={cat.id.toString()}>
-                                {cat.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          id="disponivel"
-                          checked={productForm.disponivel}
-                          onChange={(e) =>
-                            setProductForm((prev) => ({
-                              ...prev,
-                              disponivel: e.target.checked,
-                            }))
-                          }
-                          className="w-4 h-4"
-                        />
-                        <Label htmlFor="disponivel">Produto disponível</Label>
-                      </div>
-                      <div>
-                        <Label htmlFor="imagem">URL da Imagem</Label>
-                        <Input
-                          id="imagem"
-                          value={productForm.imagem}
-                          onChange={handleChangeProdutos}
-                          placeholder="https://..."
-                        />
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button type="submit" className="w-full mt-4">
-                        Adicionar Produto
-                      </Button>
-                    </DialogFooter>
+                      <DialogFooter>
+                        <Button type="submit" className="w-full mt-4">
+                          Adicionar Produto
+                        </Button>
+                      </DialogFooter>
                     </form>
                   </DialogContent>
                 </Dialog>
@@ -1022,7 +1176,7 @@ console.log(data.session?.user?.user_metadata?.role);
                   <div className="relative w-full sm:max-w-xs">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar por nome, descrição ou categoria..."
+                      placeholder="Buscar por nome, descrição, categoria ou lanchonete..."
                       value={productSearchTerm}
                       onChange={(e) => setProductSearchTerm(e.target.value)}
                       className="pl-10"
@@ -1045,6 +1199,7 @@ console.log(data.session?.user?.user_metadata?.role);
                           <TableHead>Descrição</TableHead>
                           <TableHead>Preço</TableHead>
                           <TableHead>Categoria</TableHead>
+                          <TableHead>Lanchonete</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead>Ações</TableHead>
                         </TableRow>
@@ -1065,6 +1220,7 @@ console.log(data.session?.user?.user_metadata?.role);
                             </TableCell>
                             <TableCell className="font-semibold">R$ {product.preco.toFixed(2)}</TableCell>
                             <TableCell>{getCategoryName(product.categoria_id)}</TableCell>
+                            <TableCell>{getLanchoneteName(product.lanchonete_id)}</TableCell>
                             <TableCell>
                               <Badge variant={product.disponivel ? "outline" : "secondary"}>
                                 {product.disponivel ? "Disponível" : "Indisponível"}
@@ -1204,106 +1360,8 @@ console.log(data.session?.user?.user_metadata?.role);
               </CardContent>
             </Card>
           </TabsContent>
-
-          {/* ===== TAB DE USUÁRIOS ===== */}
-          <TabsContent value="users" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Gerenciar Usuários</CardTitle>
-                <CardDescription>Promova ou remova privilégios de administrador</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Filtros e Busca */}
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar por nome, e-mail ou unidade..."
-                      value={userSearchTerm}
-                      onChange={(e) => setUserSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  <Select value={userRoleFilter} onValueChange={setUserRoleFilter}>
-                    <SelectTrigger className="w-full sm:w-[180px]">
-                      <SelectValue placeholder="Filtrar por role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="admin">Apenas Admins</SelectItem>
-                      <SelectItem value="client">Apenas Clientes</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {isLoadingUsers ? (
-                  <p className="text-sm text-muted-foreground">Carregando usuários...</p>
-                ) : filteredUsers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Nenhum usuário encontrado.</p>
-                ) : (
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Nome</TableHead>
-                          <TableHead>Email</TableHead>
-                          <TableHead>Unidade</TableHead>
-                          <TableHead>CPF</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead className="text-right">Ações</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredUsers.map((user) => (
-                          <TableRow key={user.id}>
-                            <TableCell className="font-medium">{user.nome}</TableCell>
-                            <TableCell>{user.email}</TableCell>
-                            <TableCell className="max-w-xs truncate">{user.unidade || "Não informado"}</TableCell>
-                            <TableCell>{user.cpf || "Não informado"}</TableCell>
-                            <TableCell>
-                              {user.role === "admin" ? (
-                                <Badge variant="default" className="gap-1">
-                                  <Shield className="h-3 w-3" />
-                                  Admin
-                                </Badge>
-                              ) : (
-                                <Badge variant="secondary" className="gap-1">
-                                  <Users className="h-3 w-3" />
-                                  Cliente
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button
-                                variant={user.role === "admin" ? "destructive" : "default"}
-                                size="sm"
-                                onClick={() => toggleAdminRole(user.auth_user_id, user.role)}
-                                className="gap-2"
-                              >
-                                {user.role === "admin" ? (
-                                  <>
-                                    <ShieldOff className="h-4 w-4" />
-                                    Remover Admin
-                                  </>
-                                ) : (
-                                  <>
-                                    <Shield className="h-4 w-4" />
-                                    Promover a Admin
-                                  </>
-                                )}
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
- 
+
         {/* Dialog de Editar Produto */}
         <Dialog open={isEditProductOpen} onOpenChange={setIsEditProductOpen}>
           <DialogContent className="max-w-md">
@@ -1365,6 +1423,25 @@ console.log(data.session?.user?.user_metadata?.role);
                     {categories.map((cat) => (
                       <SelectItem key={cat.id} value={cat.id.toString()}>
                         {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="edit-lanchonete">Lanchonete</Label>
+                <Select
+                  value={productForm.lanchonete_id ? productForm.lanchonete_id.toString() : ""}
+                  onValueChange={(value) => setProductForm({ ...productForm, lanchonete_id: value })}
+                  disabled={lanchonetes.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={isLoadingLanchonetes ? "Carregando..." : "Selecione"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {lanchonetes.map((lan) => (
+                      <SelectItem key={lan.id} value={lan.id.toString()}>
+                        {lan.name}
                       </SelectItem>
                     ))}
                   </SelectContent>

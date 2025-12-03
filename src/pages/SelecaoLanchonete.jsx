@@ -1,29 +1,45 @@
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { Store, MapPin } from "lucide-react";
+import { Store, MapPin, Loader2 } from "lucide-react";
 import bgImage from "@/assets/img/logoprincipal.png";
+import supabase from "@/helper/supabaseClient";
+import { toast } from "sonner";
 
 const SelecaoLanchonete = () => {
   const navigate = useNavigate();
+  const [lanchonetes, setLanchonetes] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const lanchonetes = [
-    {
-      id: 1,
-      name: "LANCHONETE SESC",
-      address: " Rua Doutor José Pinto Rebelo Junior, 91 - Centro, Matinhos - PR, 83260-000",
-      description: "Nossa unidade Sesc Caioba em Matinhos",
-    },
-    {
-      id: 2,
-      name: "CAFÉ ESCOLA",
-      address: " Rua Doutor José Pinto Rebelo Junior, 91 - Centro, Matinhos - PR, 83260-000",
-      description: "Unidade Senac Caioba em Matinhos",
-    },
-  ];
+  useEffect(() => {
+    const fetchLanchonetes = async () => {
+      setIsLoading(true);
+      const { data, error } = await supabase
+        .from("lanchonete")
+        .select("id, nome_lanchonete, endereco, horario, status, telefone")
+        .order("nome_lanchonete", { ascending: true });
+
+      if (error) {
+        console.error("Erro ao carregar lanchonetes:", error);
+        toast.error("Não foi possível carregar as lanchonetes.");
+        setIsLoading(false);
+        return;
+      }
+
+      const active = (data || []).filter((item) => item.status !== false);
+      setLanchonetes(active);
+      setIsLoading(false);
+    };
+
+    fetchLanchonetes();
+  }, []);
 
   const handleSelectLanchonete = (lanchoneteId) => {
     localStorage.setItem("lanchonete_selecionada", lanchoneteId);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("lanchonete_change"));
+    }
     navigate("/lanchonete");
   };
 
@@ -55,7 +71,22 @@ const SelecaoLanchonete = () => {
 
         {/* Cards das lanchonetes */}
         <div className="flex flex-col md:flex-row gap-6 items-center justify-center w-full max-w-4xl">
-          {lanchonetes.map((lanchonete) => (
+          {isLoading ? (
+            <div className="flex flex-col items-center text-center text-gray-600 py-10">
+              <Loader2 className="h-10 w-10 animate-spin mb-3" />
+              <p>Carregando unidades...</p>
+            </div>
+          ) : lanchonetes.length === 0 ? (
+            <Card className="w-full md:w-[400px] text-center p-6">
+              <CardHeader>
+                <CardTitle className="text-xl">Nenhuma unidade disponível</CardTitle>
+                <CardDescription>
+                  Tente novamente mais tarde ou entre em contato com o suporte.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          ) : (
+            lanchonetes.map((lanchonete) => (
             <Card
               key={lanchonete.id}
               className="w-full md:w-[400px] hover:shadow-xl transition-all duration-300 cursor-pointer border-2 hover:border-[#ff8a00]"
@@ -66,17 +97,23 @@ const SelecaoLanchonete = () => {
                   <Store className="w-8 h-8 text-white" />
                 </div>
                 <CardTitle className="text-2xl text-[#0b4d8b]">
-                  {lanchonete.name}
+                    {lanchonete.nome_lanchonete}
                 </CardTitle>
                 <CardDescription className="text-base">
-                  {lanchonete.description}
+                    {lanchonete.descricao || "Unidade disponível"}
                 </CardDescription>
               </CardHeader>
               <CardContent className="text-center">
                 <div className="flex items-center justify-center gap-2 text-gray-600 mb-4">
                   <MapPin className="w-8 h-8" /> 
-                  <span className="text-sm"> {lanchonete.address}</span>
+                    <span className="text-sm"> {lanchonete.endereco}</span>
                 </div>
+                  {lanchonete.horario && (
+                    <p className="text-sm text-gray-500 mb-2">Horário: {lanchonete.horario}</p>
+                  )}
+                  {lanchonete.telefone && (
+                    <p className="text-sm text-gray-500 mb-4">Telefone: {lanchonete.telefone}</p>
+                  )}
                 <Button
                   className="w-full bg-[#0b4d8b] hover:bg-[#0b4d8b]/90 text-white"
                   onClick={(e) => {
@@ -90,7 +127,8 @@ const SelecaoLanchonete = () => {
                 </Button>
               </CardContent>
             </Card>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </main>

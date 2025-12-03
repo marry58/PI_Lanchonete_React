@@ -1,49 +1,41 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Trash2, Plus, Minus, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
+import { useCart } from "@/context/CartContext";
 
 const Carrinho = () => {
-  const [cartItems, setCartItems] = useState([
-    {
-      id: 1,
-      name: "X-Burger Especial",
-      price: 25.90,
-      quantity: 1,
-      image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=300&h=300&fit=crop",
-    },
-    {
-      id: 2,
-      name: "Batata Frita Grande",
-      price: 12.90,
-      quantity: 2,
-      image: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=300&h=300&fit=crop",
-    },
-  ]);
+  const navigate = useNavigate();
+  const { cartItems, updateQuantity, removeItem, clearCart, total } = useCart();
 
-  const updateQuantity = (id, delta) => {
-    setCartItems(items =>
-      items.map(item =>
-        item.id === id
-          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
-          : item
-      )
-    );
+  const handleQuantityChange = async (id, delta) => {
+    try {
+      const result = await updateQuantity(id, delta);
+      if (!result?.success) {
+        toast.error(
+          result?.availableStock > 0
+            ? `Estoque disponível: ${result.availableStock} unidade(s).`
+            : "Produto sem estoque disponível."
+        );
+      }
+    } catch (error) {
+      console.error("Erro ao atualizar quantidade", error);
+      toast.error("Não foi possível verificar o estoque agora.");
+    }
   };
 
-  const removeItem = (id) => {
-    setCartItems(items => items.filter(item => item.id !== id));
+  const handleDecrease = (id) => handleQuantityChange(id, -1);
+  const handleIncrease = (id) => handleQuantityChange(id, 1);
+
+  const handleRemove = (id) => {
+    removeItem(id);
     toast.success("Item removido do carrinho");
   };
 
-  const total = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
   const handleCheckout = () => {
-    toast.success("Pedido realizado com sucesso!");
-    setCartItems([]);
+    navigate("/pagamento", { state: { fromCheckout: true } });
   };
 
   return (
@@ -60,12 +52,12 @@ const Carrinho = () => {
               <p className="text-muted-foreground mb-6">
                 Adicione itens do cardápio para começar seu pedido
               </p>
-              <Link to="/">
+              <Link to="../lanchonete">
                 <Button>Ver Cardápio</Button>
               </Link>
             </div>
           </Card>
-        ) : (
+        ) : ( 
           <div className="grid md:grid-cols-3 gap-8">
             <div className="md:col-span-2 space-y-4">
               {cartItems.map((item) => (
@@ -86,7 +78,7 @@ const Carrinho = () => {
                           variant="outline"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => updateQuantity(item.id, -1)}
+                          onClick={() => handleDecrease(item.id)}
                         >
                           <Minus className="h-4 w-4" />
                         </Button>
@@ -97,7 +89,7 @@ const Carrinho = () => {
                           variant="outline"
                           size="icon"
                           className="h-8 w-8"
-                          onClick={() => updateQuantity(item.id, 1)}
+                          onClick={() => handleIncrease(item.id)}
                         >
                           <Plus className="h-4 w-4" />
                         </Button>
@@ -107,7 +99,7 @@ const Carrinho = () => {
                       variant="ghost"
                       size="icon"
                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => removeItem(item.id)}
+                      onClick={() => handleRemove(item.id)}
                     >
                       <Trash2 className="h-5 w-5" />
                     </Button>

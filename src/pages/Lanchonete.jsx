@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import bgImage from "@/assets/img/logoprincipal.png";
+import imageHeader from "@/assets/img/headerPrincipal.png";
 import { useNavigate } from "react-router-dom";
 
 const Lanchonete = () => {
@@ -17,7 +18,7 @@ const Lanchonete = () => {
             <div className="relative z-10 flex flex-col items-center gap-8 w-full h-full justify-center">
                 {/* Top logo positioned near the top */}
                 <img
-                    src="/src/assets/img/headerPrincipal.png"
+                    src={imageHeader}
                     alt="Fecomércio PR logo"
                     className="w-[544px] h-[118px] mt-[55px] object-contain absolute top-12 left-1/2 -translate-x-1/2"
                 />

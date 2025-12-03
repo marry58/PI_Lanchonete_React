@@ -3,6 +3,8 @@ import { ShoppingCart, User, Menu, LogOut } from "lucide-react";
 import { Button } from "./ui/button";
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
+import { useCart } from "@/context/CartContext";
+import { Badge } from "./ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,8 +20,14 @@ import logo from "@/assets/img/FecomercioSESCSENAC.png";
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
+  const { cartItems } = useCart();
   const navigate = useNavigate();
+  
+  const cartItemsCount = cartItems.reduce((total, item) => total + item.quantity, 0);
+  const userRoleRaw = user?.user_metadata?.role;
+  const userRole = typeof userRoleRaw === "string" ? userRoleRaw.toLowerCase() : undefined;
+  const showClientLinks = userRole !== "admin" && userRole !== "admin_master";
 
   const handleLogout = async () => {
     await signOut();
@@ -35,16 +43,25 @@ const Header = () => {
             <img src={logo} alt="Lanchonete" className=" md:h-16" />
           </Link>
           <div className="flex items-center gap-4">
-            <Link to="/carrinho">
-              <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10">
-                <ShoppingCart className="h-5 w-5" />
-              </Button>
-            </Link>
-            <Link to="/perfil">
-              <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10">
-                <User className="h-5 w-5" />
-              </Button>
-            </Link>
+            {showClientLinks && (
+              <>
+                <Link to="/carrinho" className="relative">
+                  <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10">
+                    <ShoppingCart className="h-5 w-5" />
+                  </Button>
+                  {cartItemsCount > 0 && (
+                    <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs">
+                      {cartItemsCount}
+                    </Badge>
+                  )}
+                </Link>
+                <Link to="/perfil">
+                  <Button variant="ghost" size="icon" className="text-primary-foreground hover:bg-primary-foreground/10">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </Link>
+              </>
+            )}
             <Button 
               variant="ghost" 
               size="icon" 
