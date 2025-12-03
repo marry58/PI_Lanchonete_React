@@ -35,7 +35,22 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Package, ShoppingCart, Layers, BarChart3, TrendingUp, DollarSign, Users, UserCog, Shield, ShieldOff, Search, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Legend } from "recharts";
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
+
+const WEEKDAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+const DISPLAY_WEEK_SEQUENCE = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+const STATUS_CONFIG = [
+  { key: "pending", label: "Pendente", color: "hsl(var(--chart-1))" },
+  { key: "preparing", label: "Preparando", color: "hsl(var(--chart-2))" },
+  { key: "ready", label: "Pronto", color: "hsl(var(--chart-3))" },
+  { key: "delivered", label: "Entregue", color: "hsl(var(--chart-4))" },
+  { key: "cancelled", label: "Cancelado", color: "hsl(var(--destructive))" },
+];
+
+const INITIAL_WEEK_SERIES = DISPLAY_WEEK_SEQUENCE.map((day) => ({ day, value: 0 }));
+const INITIAL_STATUS_SERIES = STATUS_CONFIG.map(({ label, color }) => ({ name: label, value: 0, color }));
+const formatCurrency = (value = 0) =>
+  Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 const Admin = () => {
 
@@ -220,6 +235,15 @@ const Admin = () => {
   const [productSearchTerm, setProductSearchTerm] = useState("");
   const [lanchonetes, setLanchonetes] = useState([]);
   const [isLoadingLanchonetes, setIsLoadingLanchonetes] = useState(false);
+  const [dashboardSummary, setDashboardSummary] = useState({
+    totalSales: 0,
+    totalOrders: 0,
+    averageTicket: 0,
+  });
+  const [salesData, setSalesData] = useState(INITIAL_WEEK_SERIES);
+  const [orderStatusData, setOrderStatusData] = useState(INITIAL_STATUS_SERIES);
+  const [topProductsData, setTopProductsData] = useState([]);
+  const [isLoadingDashboard, setIsLoadingDashboard] = useState(false);
 
   const fetchProducts = async () => {
     setIsLoadingProducts(true);
@@ -275,6 +299,107 @@ const Admin = () => {
 
     setLanchonetes(normalized);
     setIsLoadingLanchonetes(false);
+  };
+
+  const buildWeeklySalesData = (ordersList = []) => {
+    const startDate = new Date();
+    startDate.setHours(0, 0, 0, 0);
+    startDate.setDate(startDate.getDate() - 6);
+
+    const totalsByDay = {};
+    ordersList.forEach((order) => {
+      if (!order?.created_at) {
+        return;
+      }
+      const orderDate = new Date(order.created_at);
+      if (Number.isNaN(orderDate.getTime()) || orderDate < startDate) {
+        return;
+      }
+      const key = orderDate.toISOString().slice(0, 10);
+      totalsByDay[key] = (totalsByDay[key] || 0) + Number(order.total || 0);
+    });
+
+    return Array.from({ length: 7 }).map((_, index) => {
+      const current = new Date(startDate);
+      current.setDate(startDate.getDate() + index);
+      const key = current.toISOString().slice(0, 10);
+      return {
+        day: WEEKDAY_LABELS[current.getDay()],
+        value: Number((totalsByDay[key] || 0).toFixed(2)),
+      };
+    });
+  };
+
+  const buildStatusDistribution = (ordersList = []) => {
+    const counts = ordersList.reduce((acc, order) => {
+      if (!order?.status) {
+        return acc;
+      }
+      const status = order.status;
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {});
+
+    return STATUS_CONFIG.map(({ key, label, color }) => ({
+      name: label,
+      color,
+      value: counts[key] || 0,
+    }));
+  };
+
+  const calculateDashboardFromOrders = (ordersList = []) => {
+    const totalSales = ordersList.reduce((sum, order) => sum + Number(order.total || 0), 0);
+    const totalOrders = ordersList.length;
+    const averageTicket = totalOrders > 0 ? totalSales / totalOrders : 0;
+
+    setDashboardSummary({
+      totalSales,
+      totalOrders,
+      averageTicket,
+    });
+
+    setSalesData(buildWeeklySalesData(ordersList));
+    setOrderStatusData(buildStatusDistribution(ordersList));
+  };
+
+  const fetchTopProductsData = async () => {
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const { data, error } = await supabase
+        .from("pedido_items")
+        .select(`
+          id,
+          title,
+          qty,
+          created_at,
+          produto:product_id (nome)
+        `)
+        .gte("created_at", thirtyDaysAgo.toISOString());
+
+      if (error) {
+        throw error;
+      }
+
+      const aggregated = (data || []).reduce((acc, item) => {
+        const key = item?.produto?.nome || item?.title || "Produto";
+        const qty = Number(item?.qty) || 0;
+        acc[key] = (acc[key] || 0) + qty;
+        return acc;
+      }, {});
+
+      const formatted = Object.entries(aggregated)
+        .map(([product, qty]) => ({ product, sales: qty }))
+        .sort((a, b) => b.sales - a.sales)
+        .slice(0, 5);
+
+      setTopProductsData(formatted);
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao carregar produtos mais vendidos.");
+      setTopProductsData([]);
+    }
   };
 
   // fim PRODUTOS  
@@ -481,6 +606,7 @@ const Admin = () => {
 
   const fetchOrders = async () => {
     setIsLoadingOrders(true);
+    setIsLoadingDashboard(true);
     try {
       const { data, error } = await supabase
         .from("pedidos")
@@ -501,12 +627,16 @@ const Admin = () => {
         throw error;
       }
 
-      setOrders(data || []);
+      const normalizedOrders = data || [];
+      setOrders(normalizedOrders);
+      calculateDashboardFromOrders(normalizedOrders);
+      await fetchTopProductsData();
     } catch (err) {
       console.error(err);
       toast.error("Erro ao carregar pedidos.");
     } finally {
       setIsLoadingOrders(false);
+      setIsLoadingDashboard(false);
     }
   };
 
@@ -542,23 +672,76 @@ const Admin = () => {
   };
 
   const updateOrderStatusInDB = async (orderId, newStatus) => {
+    const normalizedOrderId = String(orderId ?? "").trim();
+    if (!normalizedOrderId || !newStatus) {
+      toast.error("Pedido ou status inválido.");
+      return;
+    }
+
     try {
-      const { error } = await supabase
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        throw sessionError;
+      }
+      const userRole = sessionData?.session?.user?.user_metadata?.role;
+      if (userRole !== "admin") {
+        toast.error("Apenas administradores podem alterar pedidos.");
+        return;
+      }
+      console.log("updateOrderStatusInDB → user", sessionData?.session?.user?.user_metadata);
+    } catch (authError) {
+      console.error(authError);
+      toast.error("Não foi possível validar o usuário em sessão.");
+      return;
+    }
+
+    const previousOrders = orders.map((order) => ({ ...order }));
+    const previousOrder = previousOrders.find((order) => order.id === normalizedOrderId);
+
+    if (previousOrder?.status === newStatus) {
+      return;
+    }
+
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === normalizedOrderId
+          ? { ...order, status: newStatus }
+          : order
+      )
+    );
+    setSelectedOrder((prev) =>
+      prev && prev.id === normalizedOrderId ? { ...prev, status: newStatus } : prev
+    );
+
+    try {
+      console.log("status change →", { normalizedOrderId, newStatus });
+
+      const { data, error } = await supabase
         .from("pedidos")
-        .update({ status: newStatus })
-        .eq("id", orderId);
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq("id", normalizedOrderId)
+        .select("id");
+      console.log("Update response:", { data, error });
 
       if (error) {
-        console.error(error);
-        toast.error("Erro ao atualizar status.");
-        return;
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error("Nenhum pedido correspondente encontrado para atualizar.");
       }
 
       toast.success("Status do pedido atualizado!");
       fetchOrders();
     } catch (err) {
       console.error(err);
-      toast.error("Erro ao atualizar status.");
+      toast.error(err?.message || "Erro ao atualizar status.");
+      setOrders(previousOrders);
+      if (previousOrder) {
+        setSelectedOrder((prev) =>
+          prev && prev.id === normalizedOrderId ? previousOrder : prev
+        );
+      }
     }
   };
 
@@ -567,33 +750,6 @@ const Admin = () => {
   const [isEditProductOpen, setIsEditProductOpen] = useState(false);
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
   const [isEditCategoryOpen, setIsEditCategoryOpen] = useState(false);
-
-  // Dados mockados para o Dashboard
-  // Dados mockados para o Dashboard
-  const salesData = [
-    { day: "Seg", value: 250 },
-    { day: "Ter", value: 380 },
-    { day: "Qua", value: 420 },
-    { day: "Qui", value: 310 },
-    { day: "Sex", value: 580 },
-    { day: "Sáb", value: 720 },
-    { day: "Dom", value: 650 },
-  ];
-
-  const orderStatusData = [
-    { name: "Pendente", value: 12, color: "hsl(var(--chart-1))" },
-    { name: "Preparando", value: 8, color: "hsl(var(--chart-2))" },
-    { name: "Pronto", value: 5, color: "hsl(var(--chart-3))" },
-    { name: "Entregue", value: 45, color: "hsl(var(--chart-4))" },
-  ];
-
-  const topProductsData = [
-    { product: "X-Burger", sales: 45 },
-    { product: "Pizza", sales: 38 },
-    { product: "Coca-Cola", sales: 62 },
-    { product: "Esfiha", sales: 28 },
-    { product: "X-Salada", sales: 33 },
-  ];
 
   const chartConfig = {
     value: {
@@ -696,9 +852,11 @@ const Admin = () => {
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">R$ 3.310,00</div>
+                  <div className="text-2xl font-bold">
+                    {isLoadingDashboard ? "..." : formatCurrency(dashboardSummary.totalSales)}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    <span className="text-green-600">+12.5%</span> em relação ao mês passado
+                    Total faturado nos pedidos registrados.
                   </p>
                 </CardContent>
               </Card>
@@ -709,9 +867,11 @@ const Admin = () => {
                   <ShoppingCart className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">70</div>
+                  <div className="text-2xl font-bold">
+                    {isLoadingDashboard ? "..." : dashboardSummary.totalOrders}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    <span className="text-green-600">+8.2%</span> em relação à semana passada
+                    Pedidos cadastrados no Supabase.
                   </p>
                 </CardContent>
               </Card>
@@ -735,9 +895,11 @@ const Admin = () => {
                   <TrendingUp className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">R$ 47,29</div>
+                  <div className="text-2xl font-bold">
+                    {isLoadingDashboard ? "..." : formatCurrency(dashboardSummary.averageTicket)}
+                  </div>
                   <p className="text-xs text-muted-foreground">
-                    <span className="text-green-600">+5.3%</span> em relação ao mês passado
+                    Média de valor por pedido.
                   </p>
                 </CardContent>
               </Card>
@@ -752,30 +914,34 @@ const Admin = () => {
                   <CardDescription>Faturamento diário em R$</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ChartContainer config={chartConfig} className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={salesData}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis
-                          dataKey="day"
-                          className="text-xs"
-                          tick={{ fill: "hsl(var(--muted-foreground))" }}
-                        />
-                        <YAxis
-                          className="text-xs"
-                          tick={{ fill: "hsl(var(--muted-foreground))" }}
-                        />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Line
-                          type="monotone"
-                          dataKey="value"
-                          stroke="hsl(var(--primary))"
-                          strokeWidth={2}
-                          dot={{ fill: "hsl(var(--primary))", r: 4 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
+                  {isLoadingDashboard ? (
+                    <p className="text-center text-muted-foreground py-12">Carregando dados...</p>
+                  ) : (
+                    <ChartContainer config={chartConfig} className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={salesData}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis
+                            dataKey="day"
+                            className="text-xs"
+                            tick={{ fill: "hsl(var(--muted-foreground))" }}
+                          />
+                          <YAxis
+                            className="text-xs"
+                            tick={{ fill: "hsl(var(--muted-foreground))" }}
+                          />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Line
+                            type="monotone"
+                            dataKey="value"
+                            stroke="hsl(var(--primary))"
+                            strokeWidth={2}
+                            dot={{ fill: "hsl(var(--primary))", r: 4 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  )}
                 </CardContent>
               </Card>
 
@@ -786,27 +952,31 @@ const Admin = () => {
                   <CardDescription>Distribuição por status</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ChartContainer config={chartConfig} className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={orderStatusData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {orderStatusData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
+                  {isLoadingDashboard ? (
+                    <p className="text-center text-muted-foreground py-12">Carregando dados...</p>
+                  ) : (
+                    <ChartContainer config={chartConfig} className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={orderStatusData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {orderStatusData.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  )}
                 </CardContent>
               </Card>
 
@@ -817,28 +987,36 @@ const Admin = () => {
                   <CardDescription>Top 5 produtos do mês</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <ChartContainer config={chartConfig} className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={topProductsData}>
-                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                        <XAxis
-                          dataKey="product"
-                          className="text-xs"
-                          tick={{ fill: "hsl(var(--muted-foreground))" }}
-                        />
-                        <YAxis
-                          className="text-xs"
-                          tick={{ fill: "hsl(var(--muted-foreground))" }}
-                        />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <Bar
-                          dataKey="sales"
-                          fill="hsl(var(--primary))"
-                          radius={[8, 8, 0, 0]}
-                        />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </ChartContainer>
+                  {isLoadingDashboard ? (
+                    <p className="text-center text-muted-foreground py-12">Carregando dados...</p>
+                  ) : topProductsData.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-12">
+                      Sem vendas registradas no período analisado.
+                    </p>
+                  ) : (
+                    <ChartContainer config={chartConfig} className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={topProductsData}>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                          <XAxis
+                            dataKey="product"
+                            className="text-xs"
+                            tick={{ fill: "hsl(var(--muted-foreground))" }}
+                          />
+                          <YAxis
+                            className="text-xs"
+                            tick={{ fill: "hsl(var(--muted-foreground))" }}
+                          />
+                          <ChartTooltip content={<ChartTooltipContent />} />
+                          <Bar
+                            dataKey="sales"
+                            fill="hsl(var(--primary))"
+                            radius={[8, 8, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartContainer>
+                  )}
                 </CardContent>
               </Card>
             </div>
